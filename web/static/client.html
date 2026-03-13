@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>PhoneVoxel — Client</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="client-app">
+
+  <!-- Camera viewfinder -->
+  <video id="video-bg" playsinline autoplay muted></video>
+  <canvas id="cap-canvas" style="display:none"></canvas>
+  <div id="crosshair"></div>
+
+  <!-- Status overlay (top) -->
+  <div id="overlay">
+    <div id="status-bar">
+      <div class="dot red" id="conn-dot"></div>
+      <span id="conn-label">Not connected</span>
+      <span id="gps-label" style="margin-left:auto;color:#88a;font-size:11px">GPS: –</span>
+      <span id="fps-label" style="color:#8a8;font-size:11px">0 fps</span>
+    </div>
+  </div>
+
+  <!-- iOS orientation permission prompt (hidden by default) -->
+  <div id="orientation-prompt" style="display:none">
+    <h2>Motion & Orientation Access</h2>
+    <p>This app needs access to your device's compass and gyroscope to project the camera ray correctly.</p>
+    <button id="btn-orient-perm">Allow Orientation Access</button>
+  </div>
+
+  <!-- FOV setup + start panel (bottom) -->
+  <div id="setup-panel">
+    <label>Phone Model:</label>
+    <select id="phone-model"></select>
+
+    <label>Horizontal FOV: <span id="fov-value">70.0°</span></label>
+    <input type="range" id="fov-slider" min="30" max="140" step="0.5" value="70">
+
+    <p class="hint">Select your phone model for a preset FOV, or drag the slider to set it manually.
+    If unsure, 70° works for most phones.</p>
+
+    <button id="btn-start">Start Streaming</button>
+  </div>
+
+  <!-- Collapse/expand setup panel while streaming -->
+  <button id="toggle-setup" style="display:none">▲ FOV</button>
+
+</div>
+<script src="/static/client.js"></script>
+</body>
+</html>

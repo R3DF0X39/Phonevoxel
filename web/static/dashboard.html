@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PhoneVoxel — Dashboard</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="dash-app">
+
+  <!-- Header -->
+  <header id="dash-header">
+    <h1>PHONEVOXEL</h1>
+    <span id="client-count">0 clients</span>
+  </header>
+
+  <!-- 3D view -->
+  <div id="view-3d"></div>
+
+  <!-- 2D heatmap -->
+  <div id="view-2d">
+    <canvas id="heatmap-canvas"></canvas>
+  </div>
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+
+    <div>
+      <div class="section-title">Connected Clients</div>
+      <div id="client-list"></div>
+    </div>
+
+    <div>
+      <div class="section-title">Detected Targets</div>
+      <div id="target-list"><div style="color:#555;font-size:11px">None</div></div>
+    </div>
+
+    <div>
+      <div class="section-title">Grid Config</div>
+      <div class="cfg-row">
+        <label>Decay</label>
+        <input type="range" id="cfg-decay" min="0.5" max="0.999" step="0.001" value="0.95">
+        <span class="cfg-val" id="val-decay">0.950</span>
+      </div>
+      <div class="cfg-row">
+        <label>Threshold</label>
+        <input type="range" id="cfg-threshold" min="0" max="1" step="0.01" value="0.5">
+        <span class="cfg-val" id="val-threshold">0.50</span>
+      </div>
+      <div class="cfg-row">
+        <label>Motion</label>
+        <input type="range" id="cfg-motion" min="1" max="100" step="1" value="15">
+        <span class="cfg-val" id="val-motion">15</span>
+      </div>
+      <button class="dash-btn" id="btn-apply-cfg">Apply</button>
+      <button class="dash-btn" id="btn-reset-grid" style="background:#3a1a1a;border-color:#f44">Reset Grid</button>
+    </div>
+
+    <div>
+      <div class="section-title">Ray Query</div>
+      <p style="font-size:11px;color:#888;margin-bottom:8px">
+        Click on a 2D heatmap position to query the highest-valued voxel along that vertical column.
+      </p>
+      <div id="query-result" style="font-size:11px;color:#aaa">–</div>
+    </div>
+
+  </aside>
+
+</div>
+
+<!-- Three.js from CDN (r148 — stable, no import map needed) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r148/three.min.js"></script>
+<script src="/static/dashboard.js"></script>
+</body>
+</html>
