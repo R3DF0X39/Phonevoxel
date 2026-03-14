@@ -37,6 +37,10 @@ func (c *Converter) SetOrigin(lat, lon, alt float64) bool {
 // IsSet reports whether an origin has been established.
 func (c *Converter) IsSet() bool { return c.set }
 
+// ResetOrigin clears the established origin so that the next SetOrigin call
+// will take effect again. Intended for demo/testing use.
+func (c *Converter) ResetOrigin() { c.set = false }
+
 // Origin returns the ENU origin in GPS coordinates.
 func (c *Converter) Origin() (lat, lon, alt float64) {
 	return c.originLat, c.originLon, c.originAlt

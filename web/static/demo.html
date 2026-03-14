@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PhoneVoxel — Demo</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.demo-wrap {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 24px 16px 48px;
+}
+h1 { color: #4af; margin-bottom: 6px; }
+.subtitle { color: #888; margin-bottom: 24px; }
+section { margin-bottom: 20px; }
+h2 { color: #ccc; font-size: 12px; letter-spacing: 1px; text-transform: uppercase;
+     border-bottom: 1px solid #222; padding-bottom: 4px; margin-bottom: 12px; }
+.field {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px; gap: 8px;
+}
+.field label { flex: 0 0 90px; color: #aaa; }
+.field input[type=range] { flex: 1; }
+.field .val { flex: 0 0 50px; text-align: right; color: #4af; }
+.field select { flex: 1; }
+.btns { display: flex; gap: 10px; margin: 20px 0; }
+.btns button { flex: 1; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid #1a1a2a; }
+th { color: #666; font-weight: normal; font-size: 11px; }
+td:nth-child(2) { color: #4af; }
+td:nth-child(3) { color: #888; font-size: 11px; }
+.note {
+    background: #111; border-left: 3px solid #444;
+    padding: 8px 12px; color: #888; font-size: 11px;
+    margin-bottom: 18px; line-height: 1.5;
+}
+.note a { color: #4af; }
+.warn { border-left-color: #a80; color: #a80; }
+</style>
+</head>
+<body>
+<div class="demo-wrap">
+  <h1>PhoneVoxel Demo</h1>
+  <p class="subtitle">Synthetic phone cameras — no real hardware needed</p>
+
+  <p class="note">
+    Spawns N virtual cameras arranged in a ring, each connecting to the server
+    as a phone client. Alternating blank/blob frames simulate motion at the
+    configured target position. Open the <a href="/dashboard" target="_blank">dashboard</a>
+    to watch the voxel grid accumulate in real time.
+  </p>
+
+  <section>
+    <h2>Target Position (ENU metres)</h2>
+    <div class="field">
+      <label>East</label>
+      <input type="range" id="target-e" min="-50" max="50" value="0" step="1">
+      <span class="val" id="target-e-val">0</span> m
+    </div>
+    <div class="field">
+      <label>North</label>
+      <input type="range" id="target-n" min="-50" max="50" value="0" step="1">
+      <span class="val" id="target-n-val">0</span> m
+    </div>
+    <div class="field">
+      <label>Up</label>
+      <input type="range" id="target-u" min="0" max="20" value="2" step="1">
+      <span class="val" id="target-u-val">2</span> m
+    </div>
+  </section>
+
+  <section>
+    <h2>Camera Ring</h2>
+    <div class="field">
+      <label>Count</label>
+      <select id="cam-count">
+        <option value="2">2 cameras</option>
+        <option value="3">3 cameras</option>
+        <option value="4" selected>4 cameras</option>
+        <option value="6">6 cameras</option>
+        <option value="8">8 cameras</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Radius</label>
+      <input type="range" id="cam-radius" min="5" max="60" value="20" step="1">
+      <span class="val" id="cam-radius-val">20</span> m
+    </div>
+    <div class="field">
+      <label>Height</label>
+      <input type="range" id="cam-height" min="0" max="20" value="5" step="1">
+      <span class="val" id="cam-height-val">5</span> m
+    </div>
+    <div class="field">
+      <label>HFOV</label>
+      <input type="range" id="cam-hfov" min="40" max="120" value="70" step="1">
+      <span class="val" id="cam-hfov-val">70</span>°
+    </div>
+    <div class="field">
+      <label>Frame rate</label>
+      <input type="range" id="frame-rate" min="1" max="8" value="4" step="1">
+      <span class="val" id="frame-rate-val">4</span> fps
+    </div>
+  </section>
+
+  <div class="btns">
+    <button id="btn-start">▶ Start Demo</button>
+    <button id="btn-stop" disabled>■ Stop</button>
+  </div>
+
+  <section>
+    <h2>Camera Status</h2>
+    <table>
+      <thead><tr><th>Camera</th><th>State</th><th>Frames</th></tr></thead>
+      <tbody id="status-body"></tbody>
+    </table>
+  </section>
+
+  <p class="note warn">
+    ⚠ Starting the demo resets the voxel grid and geo origin. Any real phone
+    sessions will need to reconnect and re-establish the ENU frame.
+  </p>
+</div>
+<script src="demo.js"></script>
+</body>
+</html>

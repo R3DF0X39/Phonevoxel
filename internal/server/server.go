@@ -98,9 +98,15 @@ func New(cfg config.Config, pl *pipeline.Pipeline, g *voxel.Grid, conv *geo.Conv
 	fileServer := http.FileServer(staticFS)
 	s.mux.Handle("/static/", http.StripPrefix("/static/", fileServer))
 
+	// Demo endpoint: reset geo origin so virtual cameras establish a fresh ENU frame
+	s.mux.HandleFunc("/api/reset-origin", s.handleResetOrigin)
+
 	// Page routes — serve named HTML files from the embedded FS
 	s.mux.HandleFunc("/client", func(w http.ResponseWriter, r *http.Request) {
 		http.FileServer(staticFS).ServeHTTP(w, rewriteRequest(r, "/client.html"))
+	})
+	s.mux.HandleFunc("/demo", func(w http.ResponseWriter, r *http.Request) {
+		http.FileServer(staticFS).ServeHTTP(w, rewriteRequest(r, "/demo.html"))
 	})
 	s.mux.HandleFunc("/dashboard", func(w http.ResponseWriter, r *http.Request) {
 		http.FileServer(staticFS).ServeHTTP(w, rewriteRequest(r, "/dashboard.html"))
@@ -230,5 +236,14 @@ func (s *Server) handleResetGrid(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.grid.Reset()
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleResetOrigin(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	s.geoConv.ResetOrigin()
 	w.WriteHeader(http.StatusNoContent)
 }
