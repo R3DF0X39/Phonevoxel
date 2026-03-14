@@ -132,10 +132,13 @@ func (s *Server) ListenAndServeTLS(ctx context.Context) error {
 	go s.webcam.mgr.RunSync(ctx)
 
 	srv := &http.Server{
-		Addr:         s.cfg.Server.Addr,
-		Handler:      s.mux,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 60 * time.Second,
+		Addr:        s.cfg.Server.Addr,
+		Handler:     s.mux,
+		ReadTimeout: 30 * time.Second,
+		// WriteTimeout is intentionally 0 (no timeout) because MJPEG feed
+		// handlers and WebSocket connections hold the response writer open
+		// indefinitely. A finite timeout would silently kill live streams.
+		WriteTimeout: 0,
 		IdleTimeout:  120 * time.Second,
 	}
 
