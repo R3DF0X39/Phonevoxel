@@ -73,6 +73,75 @@ func PixelToRayENU(px, py float64, intr CameraIntrinsics, pose CameraPose) [3]fl
 	return normalize3(worldDir)
 }
 
+// ComputePoseFromAzimuthElevation builds a CameraPose for a fixed-mount camera
+// (e.g. a webcam on a tripod) without using W3C device-orientation angles.
+//
+//   az_deg   – compass azimuth of the viewing direction, degrees clockwise from north (0–360)
+//   el_deg   – elevation angle above horizontal, degrees  (-90 = straight down, +90 = straight up)
+//   roll_deg – rotation around the viewing axis, degrees clockwise when viewed from behind the camera
+func ComputePoseFromAzimuthElevation(conv *Converter, lat, lon, alt, az_deg, el_deg, roll_deg float64) CameraPose {
+	east, north, up := conv.GPSToENU(lat, lon, alt)
+
+	az := az_deg * math.Pi / 180.0
+	el := el_deg * math.Pi / 180.0
+
+	cosEl := math.Cos(el)
+
+	// Forward direction in ENU (East=idx0, North=idx1, Up=idx2)
+	fwd := [3]float64{
+		math.Sin(az) * cosEl,
+		math.Cos(az) * cosEl,
+		math.Sin(el),
+	}
+
+	// Right = cross(fwd, worldUp), normalized.
+	// When nearly vertical use south as the reference to avoid degeneracy.
+	worldUp := [3]float64{0, 0, 1}
+	var right [3]float64
+	if math.Abs(el_deg) > 89.0 {
+		southRef := [3]float64{0, -1, 0}
+		right = normalize3(cross3(southRef, fwd))
+	} else {
+		right = normalize3(cross3(fwd, worldUp))
+	}
+
+	// Down = cross(fwd, right)  →  satisfies right × down = fwd  (camera X×Y=Z)
+	down := normalize3(cross3(fwd, right))
+
+	// Apply roll: rotate right and down around the forward axis.
+	if roll_deg != 0 {
+		roll := roll_deg * math.Pi / 180.0
+		cosR, sinR := math.Cos(roll), math.Sin(roll)
+		newRight := [3]float64{
+			right[0]*cosR + down[0]*sinR,
+			right[1]*cosR + down[1]*sinR,
+			right[2]*cosR + down[2]*sinR,
+		}
+		down = [3]float64{
+			down[0]*cosR - right[0]*sinR,
+			down[1]*cosR - right[1]*sinR,
+			down[2]*cosR - right[2]*sinR,
+		}
+		right = newRight
+	}
+
+	// Rotation matrix rows = [right, down, fwd] → maps ENU world → camera space.
+	r := Mat3{
+		{right[0], right[1], right[2]},
+		{down[0], down[1], down[2]},
+		{fwd[0], fwd[1], fwd[2]},
+	}
+	return CameraPose{East: east, North: north, Up: up, R: r}
+}
+
+func cross3(a, b [3]float64) [3]float64 {
+	return [3]float64{
+		a[1]*b[2] - a[2]*b[1],
+		a[2]*b[0] - a[0]*b[2],
+		a[0]*b[1] - a[1]*b[0],
+	}
+}
+
 func normalize3(v [3]float64) [3]float64 {
 	mag := math.Sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2])
 	if mag < 1e-12 {

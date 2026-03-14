@@ -30,6 +30,12 @@ type ClientFrame struct {
 
 	// Raw JPEG bytes
 	JPEG []byte
+
+	// UseAzimuthElevation, when true, instructs the pipeline to build the camera
+	// pose from Azimuth/Elevation/Roll instead of the W3C Alpha/Beta/Gamma angles.
+	// Set by the webcam path; phone clients leave this false.
+	UseAzimuthElevation bool
+	Elevation           float64 // degrees above horizontal (webcam only)
 }
 
 // ClientStatus is the per-client state sent to dashboard viewers.
@@ -107,3 +113,26 @@ type ConfigUpdateRequest struct {
 
 // HeaderSize is the fixed binary header size in bytes for client→server messages.
 const HeaderSize = 84
+
+// WebcamStateFile is the persisted list of webcam camera configurations.
+type WebcamStateFile struct {
+	Cameras []WebcamCameraEntry `json:"cameras"`
+}
+
+// WebcamCameraEntry mirrors config.WebcamCamera but is self-contained so the
+// types package doesn't import config (avoiding import cycles).
+type WebcamCameraEntry struct {
+	ID        string  `json:"id"`
+	Name      string  `json:"name"`
+	Device    string  `json:"device"`
+	Width     int     `json:"width"`
+	Height    int     `json:"height"`
+	FPS       int     `json:"fps"`
+	Lat       float64 `json:"lat"`
+	Lon       float64 `json:"lon"`
+	AltMeters float64 `json:"alt_meters"`
+	Azimuth   float64 `json:"azimuth"`
+	Elevation float64 `json:"elevation"`
+	Roll      float64 `json:"roll"`
+	HFOV      float64 `json:"hfov"`
+}

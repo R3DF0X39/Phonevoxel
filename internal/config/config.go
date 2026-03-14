@@ -15,6 +15,7 @@ type Config struct {
 	Pipeline  PipelineConfig  `json:"pipeline"`
 	Camera    CameraConfig    `json:"camera"`
 	Dashboard DashboardConfig `json:"dashboard"`
+	Webcam    WebcamConfig    `json:"webcam"`
 }
 
 // ServerConfig holds HTTP/TLS settings.
@@ -56,6 +57,35 @@ type CameraConfig struct {
 	DefaultHFOVDegrees float64 `json:"default_hfov_degrees"`
 }
 
+// WebcamConfig holds settings for the server-side webcam capture mode.
+type WebcamConfig struct {
+	// StatePath is the JSON file where camera configurations are persisted.
+	StatePath string `json:"state_path"`
+	// SyncHz is the rate at which all cameras are sampled simultaneously.
+	SyncHz float64 `json:"sync_hz"`
+	// FeedJPEGQuality is the MJPEG quality (1–95) used for browser feed streams.
+	FeedJPEGQuality int `json:"feed_jpeg_quality"`
+	// MotionAmplify multiplies diff pixel values before encoding the motion feed.
+	MotionAmplify int `json:"motion_amplify"`
+}
+
+// WebcamCamera is a single configured webcam with its physical pose on the map.
+type WebcamCamera struct {
+	ID        string  `json:"id"`
+	Name      string  `json:"name"`
+	Device    string  `json:"device"` // e.g. /dev/video0 (Linux), 0 (macOS), "Camera Name" (Windows)
+	Width     int     `json:"width"`
+	Height    int     `json:"height"`
+	FPS       int     `json:"fps"`
+	Lat       float64 `json:"lat"`
+	Lon       float64 `json:"lon"`
+	AltMeters float64 `json:"alt_meters"`
+	Azimuth   float64 `json:"azimuth"`   // degrees clockwise from north
+	Elevation float64 `json:"elevation"` // degrees above horizontal
+	Roll      float64 `json:"roll"`      // degrees, default 0
+	HFOV      float64 `json:"hfov"`      // horizontal field of view, degrees
+}
+
 // DashboardConfig holds dashboard broadcast settings.
 type DashboardConfig struct {
 	UpdateRateHz    float64 `json:"update_rate_hz"`
@@ -86,6 +116,12 @@ func Defaults() Config {
 		},
 		Camera: CameraConfig{
 			DefaultHFOVDegrees: 70.0,
+		},
+		Webcam: WebcamConfig{
+			StatePath:       "webcam_cameras.json",
+			SyncHz:          30.0,
+			FeedJPEGQuality: 70,
+			MotionAmplify:   6,
 		},
 		Dashboard: DashboardConfig{
 			UpdateRateHz:    4.0,

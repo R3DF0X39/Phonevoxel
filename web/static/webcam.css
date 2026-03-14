@@ -1,0 +1,655 @@
+/* WebcamVoxel — dark professional UI */
+:root {
+  --bg:        #08090f;
+  --bg2:       #0d1117;
+  --bg3:       #111827;
+  --bg4:       #1a2235;
+  --border:    #1e2a3a;
+  --border2:   #2a3a50;
+  --accent:    #3b9eff;   /* blue */
+  --accent2:   #f07830;   /* orange — cameras */
+  --accent3:   #f04040;   /* red — targets */
+  --accent4:   #30c878;   /* green — active */
+  --text:      #d8e0ec;
+  --text2:     #7a8aa0;
+  --text3:     #4a5a70;
+  --glow:      0 0 8px rgba(59,158,255,0.35);
+  --glow2:     0 0 8px rgba(240,120,48,0.45);
+  --radius:    6px;
+  --font:      'Courier New', Courier, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  overflow: hidden;
+}
+
+/* ── Layout ─────────────────────────────────────────────────────────── */
+#wv-app {
+  display: grid;
+  grid-template-rows: 42px 1fr 180px;
+  grid-template-columns: 1fr 300px;
+  height: 100vh;
+  gap: 0;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────── */
+#wv-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 16px;
+  background: linear-gradient(90deg, #0a1020 0%, #0d1520 100%);
+  border-bottom: 1px solid var(--border);
+  z-index: 100;
+}
+
+#wv-header h1 {
+  font-size: 13px;
+  letter-spacing: 3px;
+  color: var(--accent);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+#wv-header h1 span { color: var(--accent2); }
+
+#wv-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.wv-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg2);
+  font-size: 11px;
+  color: var(--text2);
+}
+.wv-badge .dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--text3);
+}
+.wv-badge .dot.on  { background: var(--accent4); box-shadow: 0 0 5px var(--accent4); }
+.wv-badge .dot.warn { background: #ff4; }
+.wv-badge .dot.err  { background: var(--accent3); box-shadow: 0 0 5px var(--accent3); }
+
+#wv-header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ── Main panels ─────────────────────────────────────────────────────── */
+#wv-main {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  background: #050507;
+  overflow: hidden;
+}
+
+#wv-map-panel {
+  position: relative;
+  overflow: hidden;
+}
+
+#wv-map {
+  width: 100%;
+  height: 100%;
+}
+
+/* Leaflet overrides for dark mode */
+.leaflet-container { background: #0a0e18 !important; }
+.leaflet-control-zoom a {
+  background: var(--bg3) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+.leaflet-control-zoom a:hover { background: var(--bg4) !important; }
+.leaflet-bar { border: none !important; }
+.leaflet-control-attribution { background: rgba(8,9,15,0.75) !important; color: var(--text3) !important; }
+.leaflet-control-attribution a { color: var(--text2) !important; }
+
+#wv-map-toolbar {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 1000;
+  pointer-events: auto;
+}
+
+#wv-3d-panel {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+#wv-3d-canvas-wrap {
+  width: 100%;
+  height: 100%;
+}
+
+#wv-3d-overlay {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 10;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────────────── */
+#wv-sidebar {
+  grid-row: 2 / 4;
+  background: var(--bg2);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#wv-sidebar-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+}
+.wv-tab {
+  flex: 1;
+  padding: 8px 4px;
+  text-align: center;
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text2);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+.wv-tab:hover { color: var(--text); background: var(--bg3); }
+.wv-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.wv-sidebar-pane {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  gap: 10px;
+}
+.wv-sidebar-pane.active { display: flex; }
+
+/* scrollbar */
+.wv-sidebar-pane::-webkit-scrollbar { width: 4px; }
+.wv-sidebar-pane::-webkit-scrollbar-track { background: var(--bg2); }
+.wv-sidebar-pane::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* ── Section titles ──────────────────────────────────────────────────── */
+.wv-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.wv-section-title {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--accent);
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── Camera cards ────────────────────────────────────────────────────── */
+.cam-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+  transition: border-color 0.15s;
+}
+.cam-card:hover { border-color: var(--border2); }
+.cam-card.selected { border-color: var(--accent2); box-shadow: var(--glow2); }
+
+.cam-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cam-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--text3);
+  flex-shrink: 0;
+}
+.cam-dot.live { background: var(--accent4); box-shadow: 0 0 5px var(--accent4); }
+.cam-dot.err  { background: var(--accent3); }
+
+.cam-name {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cam-fps { font-size: 10px; color: var(--accent4); }
+
+.cam-meta {
+  font-size: 10px;
+  color: var(--text2);
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.cam-meta span { white-space: nowrap; }
+
+.cam-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+/* ── Target list ─────────────────────────────────────────────────────── */
+.target-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent3);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+}
+.target-label { font-size: 11px; color: var(--accent3); margin-bottom: 2px; }
+.target-pos   { font-size: 10px; color: var(--text2); }
+.target-conf  { font-size: 10px; color: var(--accent); }
+
+/* ── Config sliders ──────────────────────────────────────────────────── */
+.cfg-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+.cfg-row label { color: var(--text2); min-width: 62px; }
+.cfg-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent);
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+.cfg-val { color: var(--accent); min-width: 34px; text-align: right; }
+
+/* ── Bottom feed strip ───────────────────────────────────────────────── */
+#wv-feeds {
+  grid-column: 1 / 2;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  overflow-x: auto;
+  align-items: stretch;
+}
+#wv-feeds::-webkit-scrollbar { height: 4px; }
+#wv-feeds::-webkit-scrollbar-thumb { background: var(--border2); }
+
+.feed-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.feed-group-label {
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text3);
+  padding: 0 2px;
+}
+
+.feed-tile {
+  position: relative;
+  width: 180px;
+  flex-shrink: 0;
+  background: #0a0c12;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.feed-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.feed-tile-label {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  padding: 2px 5px;
+  font-size: 9px;
+  background: rgba(8,9,15,0.75);
+  color: var(--text2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.feed-tile.raw   { border-top-color: var(--accent2); }
+.feed-tile.motion { border-top-color: var(--accent); }
+
+.feed-placeholder {
+  width: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: var(--text3);
+  border: 1px dashed var(--border);
+  border-radius: 3px;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────── */
+.wv-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+  user-select: none;
+}
+.wv-btn:hover    { background: var(--bg4); border-color: var(--accent); color: var(--accent); }
+.wv-btn:active   { transform: scale(0.97); }
+.wv-btn:disabled { opacity: 0.38; cursor: not-allowed; pointer-events: none; }
+
+.wv-btn.accent {
+  background: rgba(59,158,255,0.12);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.wv-btn.accent:hover { background: rgba(59,158,255,0.22); box-shadow: var(--glow); }
+
+.wv-btn.orange {
+  background: rgba(240,120,48,0.12);
+  border-color: var(--accent2);
+  color: var(--accent2);
+}
+.wv-btn.orange:hover  { background: rgba(240,120,48,0.22); box-shadow: var(--glow2); }
+.wv-btn.orange.active { background: rgba(240,120,48,0.3); box-shadow: var(--glow2); }
+
+.wv-btn.danger {
+  background: rgba(240,64,64,0.10);
+  border-color: var(--accent3);
+  color: var(--accent3);
+}
+.wv-btn.danger:hover { background: rgba(240,64,64,0.22); }
+
+.wv-btn.sm {
+  padding: 3px 7px;
+  font-size: 10px;
+  border-radius: 4px;
+}
+
+.wv-btn.full { width: 100%; justify-content: center; }
+
+/* ── Modals ──────────────────────────────────────────────────────────── */
+.wv-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5,6,10,0.82);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(2px);
+}
+.wv-modal-backdrop.hidden { display: none; }
+
+.wv-modal {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  padding: 20px 24px;
+  min-width: 320px;
+  max-width: 460px;
+  width: 100%;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.wv-modal h2 {
+  font-size: 13px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.wv-modal-body { display: flex; flex-direction: column; gap: 10px; }
+
+.wv-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.wv-field label {
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text2);
+}
+.wv-field input[type="text"],
+.wv-field input[type="number"],
+.wv-field select {
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  font-family: var(--font);
+  font-size: 12px;
+  width: 100%;
+  transition: border-color 0.15s;
+}
+.wv-field input:focus,
+.wv-field select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(59,158,255,0.15);
+}
+
+.wv-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.wv-field .hint {
+  font-size: 10px;
+  color: var(--text3);
+  margin-top: 1px;
+}
+
+.wv-modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+/* ── Pop-out elevation/roll widget ───────────────────────────────────── */
+#wv-aim-popout {
+  position: fixed;
+  z-index: 1500;
+  background: var(--bg2);
+  border: 1px solid var(--accent2);
+  border-radius: 8px;
+  padding: 12px 14px;
+  min-width: 200px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.7), var(--glow2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+#wv-aim-popout.hidden { display: none; }
+
+#wv-aim-popout h3 {
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--accent2);
+}
+
+.aim-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.aim-field label {
+  font-size: 10px;
+  color: var(--text2);
+  display: flex;
+  justify-content: space-between;
+}
+.aim-field label span { color: var(--accent); }
+.aim-field input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent2);
+}
+.aim-field input[type="number"] {
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-family: var(--font);
+  font-size: 12px;
+  width: 100%;
+}
+
+.aim-roll-toggle {
+  font-size: 10px;
+  color: var(--text2);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.aim-roll-toggle:hover { color: var(--accent2); }
+
+#aim-roll-section { display: none; }
+#aim-roll-section.visible { display: block; }
+
+/* ── Tooltip ─────────────────────────────────────────────────────────── */
+#wv-map-hint {
+  position: absolute;
+  bottom: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px 14px;
+  background: rgba(8,9,15,0.9);
+  border: 1px solid var(--accent2);
+  border-radius: 20px;
+  font-size: 11px;
+  color: var(--accent2);
+  pointer-events: none;
+  z-index: 1000;
+  white-space: nowrap;
+  box-shadow: var(--glow2);
+  transition: opacity 0.2s;
+}
+#wv-map-hint.hidden { opacity: 0; }
+
+/* ── 3D view controls ────────────────────────────────────────────────── */
+.view3d-btn {
+  padding: 5px 8px;
+  background: rgba(13,17,23,0.85);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text2);
+  font-family: var(--font);
+  font-size: 10px;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.view3d-btn:hover { border-color: var(--accent); color: var(--accent); }
+.view3d-btn.on    { color: var(--accent4); border-color: var(--accent4); }
+
+/* ── Notification toast ──────────────────────────────────────────────── */
+#wv-toast {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 7px 18px;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 20px;
+  font-size: 11px;
+  color: var(--text);
+  z-index: 3000;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+#wv-toast.hidden { opacity: 0; }
+
+/* ── Misc ─────────────────────────────────────────────────────────────── */
+.none-msg { font-size: 11px; color: var(--text3); font-style: italic; }
+
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 2px 0;
+}
+
+/* ── Camera marker (Leaflet icon) ───────────────────────────────────── */
+.cam-marker-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(240,120,48,0.85);
+  border: 2px solid #fff;
+  border-radius: 50%;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+  transition: transform 0.15s;
+}
+.cam-marker-icon:hover { transform: scale(1.2); }
+.cam-marker-icon.selected {
+  background: rgba(59,158,255,0.9);
+  box-shadow: 0 0 12px rgba(59,158,255,0.6);
+}
+
+/* Azimuth arrow on map */
+.cam-bearing-line {
+  pointer-events: none;
+}

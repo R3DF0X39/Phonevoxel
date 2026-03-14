@@ -93,6 +93,15 @@ func (p *Pipeline) ClientStatuses() []types.ClientStatus {
 	return out
 }
 
+// GetClient returns the Client struct for the given id, or nil.
+// The caller may send frames to Client.Inbox directly.
+func (p *Pipeline) GetClient(id string) *Client {
+	p.mu.RLock()
+	c := p.clients[id]
+	p.mu.RUnlock()
+	return c
+}
+
 // ClientPose returns the most recent camera pose for the named client.
 // ok is false if the client does not exist.
 func (p *Pipeline) ClientPose(id string) (geo.CameraPose, bool) {
@@ -173,9 +182,16 @@ func (p *Pipeline) processFrame(
 	}
 	intr := geo.IntrinsicsFromHFOV(w, h, hfov)
 
-	// Compute camera pose
-	pose := geo.ComputePose(p.geo, frame.Lat, frame.Lon, frame.Alt,
-		frame.Alpha, frame.Beta, frame.Gamma)
+	// Compute camera pose — webcam uses azimuth/elevation, phone uses W3C angles.
+	var pose geo.CameraPose
+	if frame.UseAzimuthElevation {
+		pose = geo.ComputePoseFromAzimuthElevation(p.geo,
+			frame.Lat, frame.Lon, frame.Alt,
+			frame.Alpha, frame.Elevation, frame.Gamma)
+	} else {
+		pose = geo.ComputePose(p.geo, frame.Lat, frame.Lon, frame.Alt,
+			frame.Alpha, frame.Beta, frame.Gamma)
+	}
 
 	// Convert to grayscale
 	gray := toGrayscale(img, w, h)

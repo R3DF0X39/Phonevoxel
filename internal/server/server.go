@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/phonevoxel/internal/capture"
 	"github.com/phonevoxel/internal/config"
 	"github.com/phonevoxel/internal/geo"
 	"github.com/phonevoxel/internal/pipeline"
@@ -35,10 +36,20 @@ type Server struct {
 	upgrader websocket.Upgrader
 	dashHub  *dashboardHub
 	mux      *http.ServeMux
+
+	webcam *webcamState
 }
 
 // New constructs a Server wired to the given pipeline and grid.
 func New(cfg config.Config, pl *pipeline.Pipeline, g *voxel.Grid, conv *geo.Converter, staticFS http.FileSystem) *Server {
+	// Initialise webcam subsystem
+	mgr := capture.New(cfg.Webcam.SyncHz, cfg.Webcam.MotionAmplify, cfg.Webcam.FeedJPEGQuality)
+	ws := &webcamState{
+		statePath: cfg.Webcam.StatePath,
+		cameras:   loadWebcamState(cfg.Webcam.StatePath),
+		mgr:       mgr,
+	}
+
 	s := &Server{
 		cfg:     cfg,
 		pipeline: pl,
@@ -51,25 +62,46 @@ func New(cfg config.Config, pl *pipeline.Pipeline, g *voxel.Grid, conv *geo.Conv
 		},
 		dashHub: newDashboardHub(),
 		mux:     http.NewServeMux(),
+		webcam:  ws,
 	}
 
+	// Wire sync callback: capture → pipeline
+	mgr.SetSyncCallback(s.webcamSyncCallback)
+
+	// Phone client WebSocket
 	s.mux.HandleFunc("/ws/client", s.handleClient)
+	// Dashboard WebSocket (shared between phone-dashboard and webcam-dashboard)
 	s.mux.HandleFunc("/ws/dashboard", s.handleDashboard)
+
+	// API
 	s.mux.HandleFunc("/api/config", s.handleAPIConfig)
 	s.mux.HandleFunc("/api/status", s.handleAPIStatus)
 	s.mux.HandleFunc("/api/query-ray", s.handleQueryRay)
 	s.mux.HandleFunc("/api/reset-grid", s.handleResetGrid)
+
+	// Webcam API
+	s.mux.HandleFunc("/api/webcam/cameras", s.handleWebcamCameras)
+	s.mux.HandleFunc("/api/webcam/cameras/", s.handleWebcamCameras)
+	s.mux.HandleFunc("/api/webcam/origin", s.handleWebcamOrigin)
+	s.mux.HandleFunc("/api/tile-proxy", s.handleTileProxy)
+
+	// Webcam MJPEG feeds
+	s.mux.HandleFunc("/webcam/feed/", s.handleWebcamFeed)
+	s.mux.HandleFunc("/webcam/motion/", s.handleWebcamMotion)
 
 	// Static files — served from the embedded FS
 	fileServer := http.FileServer(staticFS)
 	s.mux.Handle("/static/", http.StripPrefix("/static/", fileServer))
 
 	// Page routes — serve named HTML files from the embedded FS
-	s.mux.HandleFunc("/client",    func(w http.ResponseWriter, r *http.Request) {
+	s.mux.HandleFunc("/client", func(w http.ResponseWriter, r *http.Request) {
 		http.FileServer(staticFS).ServeHTTP(w, rewriteRequest(r, "/client.html"))
 	})
 	s.mux.HandleFunc("/dashboard", func(w http.ResponseWriter, r *http.Request) {
 		http.FileServer(staticFS).ServeHTTP(w, rewriteRequest(r, "/dashboard.html"))
+	})
+	s.mux.HandleFunc("/webcam", func(w http.ResponseWriter, r *http.Request) {
+		http.FileServer(staticFS).ServeHTTP(w, rewriteRequest(r, "/webcam.html"))
 	})
 	s.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
@@ -86,6 +118,13 @@ func New(cfg config.Config, pl *pipeline.Pipeline, g *voxel.Grid, conv *geo.Conv
 func (s *Server) ListenAndServeTLS(ctx context.Context) error {
 	// Start dashboard broadcast loop
 	go s.runDashboardBroadcast()
+
+	// Start webcam: register persisted cameras with pipeline, start ffmpeg, run sync loop
+	s.webcam.startAllCameras(ctx)
+	for _, cam := range s.webcam.cameras {
+		s.registerWebcamInPipeline(cam)
+	}
+	go s.webcam.mgr.RunSync(ctx)
 
 	srv := &http.Server{
 		Addr:         s.cfg.Server.Addr,

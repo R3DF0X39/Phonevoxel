@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebcamVoxel — Multi-Camera Dashboard</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/webcam.css">
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Three.js r148 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r148/three.min.js"></script>
+</head>
+<body>
+<div id="wv-app">
+
+  <!-- ── Header ─────────────────────────────────────────────── -->
+  <header id="wv-header">
+    <h1>WEBCAM<span>VOXEL</span></h1>
+
+    <div id="wv-status-bar">
+      <div class="wv-badge">
+        <div class="dot" id="dot-ws"></div>
+        <span id="badge-ws">connecting</span>
+      </div>
+      <div class="wv-badge">
+        <div class="dot" id="dot-cams"></div>
+        <span id="badge-cams">0 cameras</span>
+      </div>
+      <div class="wv-badge">
+        <div class="dot" id="dot-origin"></div>
+        <span id="badge-origin">origin unset</span>
+      </div>
+    </div>
+
+    <div id="wv-header-actions">
+      <button class="wv-btn accent" id="btn-add-camera">＋ Camera</button>
+      <button class="wv-btn" id="btn-reset-grid">↺ Reset Grid</button>
+    </div>
+  </header>
+
+  <!-- ── Main: map (left) + 3D view (right) ─────────────────── -->
+  <div id="wv-main">
+
+    <!-- Map panel -->
+    <div id="wv-map-panel">
+      <div id="wv-map"></div>
+      <div id="wv-map-hint" class="hidden">Click on the map to drop camera origin</div>
+      <div id="wv-map-toolbar">
+        <button class="wv-btn orange" id="btn-place-camera" title="Click map to place a new camera">
+          📷 Place Camera
+        </button>
+        <button class="wv-btn accent" id="btn-select-ground" title="Draw a rectangle to set the 3D ground plane">
+          🗺 Ground Plane
+        </button>
+      </div>
+    </div>
+
+    <!-- 3D view panel -->
+    <div id="wv-3d-panel">
+      <div id="wv-3d-canvas-wrap"></div>
+      <div id="wv-3d-overlay">
+        <button class="view3d-btn on"  id="btn-toggle-voxels">Voxels ✓</button>
+        <button class="view3d-btn on"  id="btn-toggle-cams">Cameras ✓</button>
+        <button class="view3d-btn on"  id="btn-toggle-rays">Rays ✓</button>
+        <button class="view3d-btn on"  id="btn-toggle-ground">Ground ✓</button>
+        <button class="view3d-btn"     id="btn-reset-view">⌂ Reset View</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Bottom: camera feed strip ──────────────────────────── -->
+  <div id="wv-feeds">
+    <!-- Populated dynamically by webcam.js -->
+  </div>
+
+  <!-- ── Sidebar ─────────────────────────────────────────────── -->
+  <aside id="wv-sidebar">
+    <div id="wv-sidebar-tabs">
+      <div class="wv-tab active" data-pane="cameras">Cameras</div>
+      <div class="wv-tab" data-pane="targets">Targets</div>
+      <div class="wv-tab" data-pane="config">Config</div>
+    </div>
+
+    <!-- Cameras pane -->
+    <div class="wv-sidebar-pane active" id="pane-cameras">
+      <div class="wv-section">
+        <div class="wv-section-title">Active Cameras</div>
+        <div id="cam-list">
+          <div class="none-msg">No cameras configured.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Targets pane -->
+    <div class="wv-sidebar-pane" id="pane-targets">
+      <div class="wv-section">
+        <div class="wv-section-title">Detected Targets</div>
+        <div id="target-list">
+          <div class="none-msg">None detected.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Config pane -->
+    <div class="wv-sidebar-pane" id="pane-config">
+      <div class="wv-section">
+        <div class="wv-section-title">Grid / Pipeline</div>
+
+        <div class="cfg-row">
+          <label>Decay</label>
+          <input type="range" id="cfg-decay" min="0.5" max="0.999" step="0.001" value="0.95">
+          <span class="cfg-val" id="val-decay">0.950</span>
+        </div>
+        <div class="cfg-row">
+          <label>Detect</label>
+          <input type="range" id="cfg-threshold" min="0" max="1" step="0.01" value="0.5">
+          <span class="cfg-val" id="val-threshold">0.50</span>
+        </div>
+        <div class="cfg-row">
+          <label>Motion</label>
+          <input type="range" id="cfg-motion" min="1" max="100" step="1" value="15">
+          <span class="cfg-val" id="val-motion">15</span>
+        </div>
+        <button class="wv-btn accent full" id="btn-apply-cfg">Apply</button>
+        <button class="wv-btn danger  full" id="btn-reset-grid2" style="margin-top:4px">Reset Grid</button>
+      </div>
+
+      <div class="wv-section">
+        <div class="wv-section-title">3D Voxel Threshold</div>
+        <div class="cfg-row">
+          <label>Show &gt;</label>
+          <input type="range" id="cfg-vox-thresh" min="0" max="1" step="0.01" value="0.05">
+          <span class="cfg-val" id="val-vox-thresh">0.05</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+</div><!-- #wv-app -->
+
+<!-- ── Aim pop-out (elevation / roll) ────────────────────── -->
+<div id="wv-aim-popout" class="hidden">
+  <h3>📐 Camera Aim</h3>
+
+  <div class="aim-field">
+    <label>Azimuth <span id="aim-az-val">0</span>°</label>
+    <input type="range" id="aim-az" min="0" max="359.9" step="0.5" value="0">
+  </div>
+
+  <div class="aim-field">
+    <label>Elevation <span id="aim-el-val">0</span>°</label>
+    <input type="range" id="aim-el" min="-90" max="90" step="0.5" value="0">
+    <input type="number" id="aim-el-num" min="-90" max="90" step="0.5" value="0">
+  </div>
+
+  <div class="aim-roll-toggle" id="toggle-roll">▸ Roll (advanced)</div>
+  <div id="aim-roll-section">
+    <div class="aim-field">
+      <label>Roll <span id="aim-roll-val">0</span>°</label>
+      <input type="range" id="aim-roll" min="-180" max="180" step="1" value="0">
+    </div>
+  </div>
+
+  <div style="display:flex;gap:6px;margin-top:4px">
+    <button class="wv-btn accent" id="btn-aim-save" style="flex:1">Save Camera</button>
+    <button class="wv-btn danger sm" id="btn-aim-cancel">✕</button>
+  </div>
+</div>
+
+<!-- ── Camera config modal ─────────────────────────────────── -->
+<div class="wv-modal-backdrop hidden" id="modal-camera">
+  <div class="wv-modal">
+    <h2 id="modal-camera-title">Configure Camera</h2>
+    <div class="wv-modal-body">
+
+      <div class="wv-field-row">
+        <div class="wv-field">
+          <label>Name</label>
+          <input type="text" id="cam-cfg-name" placeholder="Front Camera">
+        </div>
+        <div class="wv-field">
+          <label>Device</label>
+          <input type="text" id="cam-cfg-device" placeholder="/dev/video0">
+          <span class="hint">Linux: /dev/video0 · macOS: 0 · Win: "Camera Name"</span>
+        </div>
+      </div>
+
+      <div class="wv-field-row">
+        <div class="wv-field">
+          <label>Width</label>
+          <input type="number" id="cam-cfg-width" value="640" min="160" max="3840">
+        </div>
+        <div class="wv-field">
+          <label>Height</label>
+          <input type="number" id="cam-cfg-height" value="480" min="120" max="2160">
+        </div>
+      </div>
+
+      <div class="wv-field-row">
+        <div class="wv-field">
+          <label>FPS</label>
+          <input type="number" id="cam-cfg-fps" value="30" min="1" max="120">
+        </div>
+        <div class="wv-field">
+          <label>HFOV (°)</label>
+          <input type="number" id="cam-cfg-hfov" value="70" min="5" max="170" step="0.5">
+        </div>
+      </div>
+
+      <div class="wv-field-row">
+        <div class="wv-field">
+          <label>Altitude (m)</label>
+          <input type="number" id="cam-cfg-alt" value="0" step="0.1">
+        </div>
+        <div class="wv-field">
+          <label>Camera preset</label>
+          <select id="cam-cfg-preset">
+            <option value="">— select preset —</option>
+            <option value="74">Logitech C920 (74°)</option>
+            <option value="78">Logitech BRIO (78°)</option>
+            <option value="90">Generic wide-angle (90°)</option>
+            <option value="70">Generic standard (70°)</option>
+            <option value="60">Telephoto / narrow (60°)</option>
+            <option value="110">GoPro Hero11 (110°)</option>
+          </select>
+        </div>
+      </div>
+
+    </div>
+    <div class="wv-modal-actions">
+      <button class="wv-btn" id="btn-modal-cancel">Cancel</button>
+      <button class="wv-btn accent" id="btn-modal-save">Save &amp; Start</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast notification ──────────────────────────────────── -->
+<div id="wv-toast" class="hidden"></div>
+
+<script src="/static/webcam.js"></script>
+</body>
+</html>
