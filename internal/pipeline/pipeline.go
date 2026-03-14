@@ -56,12 +56,14 @@ func New(g *voxel.Grid, conv *geo.Converter, cfg config.PipelineConfig) *Pipelin
 }
 
 // RegisterClient creates and starts a per-client processing goroutine.
-func (p *Pipeline) RegisterClient(ctx context.Context, id string) *Client {
+// clientType should be "phone" or "webcam".
+func (p *Pipeline) RegisterClient(ctx context.Context, id, clientType string) *Client {
 	c := &Client{
 		ID:    id,
 		Inbox: make(chan *types.ClientFrame, 16),
 		status: types.ClientStatus{
-			ID: id,
+			ID:   id,
+			Type: clientType,
 		},
 	}
 
@@ -227,6 +229,10 @@ func (p *Pipeline) processFrame(
 		c.status.Lat = frame.Lat
 		c.status.Lon = frame.Lon
 		c.status.Heading = frame.Alpha
+		c.status.East = pose.East
+		c.status.North = pose.North
+		c.status.Up = pose.Up
+		c.status.Elevation = frame.Elevation
 		c.status.LastSeen = float64(now.UnixMilli()) / 1000.0
 		c.status.GPSAccuracy = frame.GPSAccuracy
 		c.lastPose = pose
@@ -236,6 +242,10 @@ func (p *Pipeline) processFrame(
 		c.status.Lat = frame.Lat
 		c.status.Lon = frame.Lon
 		c.status.Heading = frame.Alpha
+		c.status.East = pose.East
+		c.status.North = pose.North
+		c.status.Up = pose.Up
+		c.status.Elevation = frame.Elevation
 		c.status.LastSeen = float64(now.UnixMilli()) / 1000.0
 		c.status.GPSAccuracy = frame.GPSAccuracy
 		c.lastPose = pose

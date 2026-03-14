@@ -19,6 +19,11 @@ const state = {
   groundBounds: null, // { south, west, north, east } — lat/lon
 };
 
+// Phone clients seen in the latest WS update (indexed by id)
+const phoneClientMap  = new Map(); // id → ClientStatus
+const phoneMarkers    = new Map(); // id → Leaflet marker
+const phoneFeedIDs    = new Set(); // ids that have feed tiles in the strip
+
 // placement state machine
 const place = {
   mode:    'idle',  // 'idle' | 'origin' | 'bearing'
@@ -48,6 +53,7 @@ function openWS() {
       updateTargetList(data.targets || []);
       update3D(data.sparse_voxels || [], data.targets || [], data.clients || [], data.grid_meta);
       updateCamFPS(data.clients || []);
+      updatePhoneClients(data.clients || []);
     } catch(err) { console.error('WS parse', err); }
   };
 }
@@ -740,6 +746,41 @@ function updateCamFrustums(meta) {
   camGroup.clear();
   if (!state.showCams) return;
 
+  // ── Phone clients (ENU position already computed server-side) ────────────
+  phoneClientMap.forEach(c => {
+    if (!meta) return;
+    const posE = c.east  || 0;
+    const posN = c.north || 0;
+    const posU = c.up    || 0;
+
+    // Phone box (slightly different colour — blue)
+    const box = new THREE.Mesh(
+      new THREE.BoxGeometry(0.8, 0.4, 1.2),
+      new THREE.MeshBasicMaterial({ color: 0x3b9eff, wireframe: true })
+    );
+    box.position.set(posE, posU, -posN);
+    camGroup.add(box);
+
+    if (state.showRays) {
+      const az = c.heading * Math.PI / 180;
+      // Phones are horizontal (elevation ≈ 0); use heading as azimuth
+      const pts = [
+        new THREE.Vector3(posE, posU, -posN),
+        new THREE.Vector3(
+          posE + Math.sin(az) * 50,
+          posU,
+          -(posN + Math.cos(az) * 50),
+        ),
+      ];
+      const ray = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(pts),
+        new THREE.LineBasicMaterial({ color: 0x3b9eff, opacity: 0.5, transparent: true })
+      );
+      camGroup.add(ray);
+    }
+  });
+
+  // ── Webcam clients (pose from local config) ──────────────────────────────
   // Build simple camera icons + bearing ray for each webcam
   state.cameras.forEach(cam => {
     // We don't know ENU position without knowing the origin, but we can
@@ -985,6 +1026,136 @@ function esc(s) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+// ── Phone client visualisation ────────────────────────────────────────────────
+// Called every WS tick. Phones are identified by type === "phone" (or absent type
+// for older clients) and are distinct from webcam entries configured locally.
+
+function phoneIcon(heading) {
+  // Rotate the 📱 arrow to show compass heading visually.
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      width:26px;height:26px;border-radius:50%;
+      background:rgba(59,158,255,0.85);border:2px solid #fff;
+      display:flex;align-items:center;justify-content:center;
+      font-size:13px;transform:rotate(${heading}deg);
+      box-shadow:0 2px 8px rgba(0,0,0,0.6)">📱</div>`,
+    iconSize: [26, 26],
+    iconAnchor: [13, 13],
+  });
+}
+
+function updatePhoneClients(clients) {
+  const phones = clients.filter(c => c.type !== 'webcam');
+  const seenIDs = new Set(phones.map(c => c.id));
+
+  // Remove disconnected phones
+  phoneMarkers.forEach((marker, id) => {
+    if (!seenIDs.has(id)) {
+      map.removeLayer(marker);
+      phoneMarkers.delete(id);
+      phoneClientMap.delete(id);
+      removePhoneFeedTile(id);
+    }
+  });
+
+  // Add / update phones
+  phones.forEach(c => {
+    phoneClientMap.set(c.id, c);
+
+    if (c.lat === 0 && c.lon === 0) return; // no GPS yet
+
+    if (phoneMarkers.has(c.id)) {
+      // Update position and icon
+      phoneMarkers.get(c.id).setLatLng([c.lat, c.lon]);
+      phoneMarkers.get(c.id).setIcon(phoneIcon(c.heading));
+    } else {
+      // New phone — add marker
+      const marker = L.marker([c.lat, c.lon], {
+        icon: phoneIcon(c.heading),
+        title: c.id,
+      }).addTo(map);
+      marker.bindTooltip(`${c.id}<br>${c.fps.toFixed(1)} fps ±${c.gps_accuracy.toFixed(0)}m`, {
+        permanent: false, direction: 'top',
+      });
+      phoneMarkers.set(c.id, marker);
+    }
+
+    // Add feed tile if not already present
+    if (!phoneFeedIDs.has(c.id)) {
+      addPhoneFeedTile(c);
+    }
+  });
+
+  // Refresh phone section in cameras sidebar
+  renderPhoneSidebarSection(phones);
+}
+
+function addPhoneFeedTile(c) {
+  phoneFeedIDs.add(c.id);
+  const feeds = document.getElementById('wv-feeds');
+  const group = document.createElement('div');
+  group.className = 'feed-group';
+  group.id = 'phone-feeds-' + c.id;
+  group.innerHTML = `
+    <div class="feed-group-label" style="color:var(--accent)">📱 ${esc(c.id)}</div>
+    <div style="display:flex;gap:2px">
+      <div class="feed-tile raw" style="height:72px;border-top-color:var(--accent)">
+        <img src="/client/feed/${c.id}" alt="phone feed">
+        <div class="feed-tile-label">Live</div>
+      </div>
+    </div>`;
+  feeds.appendChild(group);
+}
+
+function removePhoneFeedTile(id) {
+  phoneFeedIDs.delete(id);
+  const el = document.getElementById('phone-feeds-' + id);
+  if (el) el.remove();
+}
+
+// Phone entries rendered at the bottom of the Cameras sidebar pane.
+function renderPhoneSidebarSection(phones) {
+  let el = document.getElementById('phone-client-section');
+  if (!phones.length) {
+    if (el) el.remove();
+    return;
+  }
+
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'phone-client-section';
+    el.className = 'wv-section';
+    document.getElementById('cam-list').parentElement.appendChild(el);
+  }
+
+  const age = id => {
+    const c = phoneClientMap.get(id);
+    if (!c) return 999;
+    return Date.now() / 1000 - c.last_seen;
+  };
+
+  el.innerHTML = `
+    <div class="wv-section-title" style="color:var(--accent)">Phone Clients</div>
+    ${phones.map(c => {
+      const a = age(c.id);
+      const dot = a < 2 ? 'on' : a < 5 ? 'warn' : 'err';
+      return `
+        <div class="cam-card">
+          <div class="cam-card-header">
+            <div class="cam-dot ${dot === 'on' ? 'live' : dot === 'warn' ? '' : 'err'}"></div>
+            <span class="cam-name">📱 ${esc(c.id)}</span>
+            <span class="cam-fps">${c.fps.toFixed(1)}fps</span>
+          </div>
+          <div class="cam-meta">
+            <span>${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}</span>
+            <span>hdg ${c.heading.toFixed(0)}°</span>
+            <span>±${c.gps_accuracy.toFixed(0)}m</span>
+          </div>
+        </div>`;
+    }).join('')}`;
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────

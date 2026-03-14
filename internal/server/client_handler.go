@@ -22,8 +22,11 @@ func (s *Server) handleClient(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Client %s connected from %s", clientID, r.RemoteAddr)
 
 	ctx := r.Context()
-	client := s.pipeline.RegisterClient(ctx, clientID)
-	defer s.pipeline.UnregisterClient(clientID)
+	client := s.pipeline.RegisterClient(ctx, clientID, "phone")
+	defer func() {
+		s.pipeline.UnregisterClient(clientID)
+		s.phoneFrames.Delete(clientID)
+	}()
 
 	// Send a welcome message so the client knows their assigned ID
 	if err := conn.WriteJSON(map[string]string{"type": "welcome", "client_id": clientID}); err != nil {
@@ -56,6 +59,11 @@ func (s *Server) handleClient(w http.ResponseWriter, r *http.Request) {
 		}
 		frame.ClientID = clientID
 		frame.ServerTimestamp = time.Now()
+
+		// Buffer latest JPEG for the /client/feed/ MJPEG endpoint.
+		if len(frame.JPEG) > 0 {
+			s.phoneFrames.Store(clientID, frame.JPEG)
+		}
 
 		// Non-blocking send; drop frame if pipeline is backed up
 		select {

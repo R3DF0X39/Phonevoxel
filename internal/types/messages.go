@@ -41,9 +41,14 @@ type ClientFrame struct {
 // ClientStatus is the per-client state sent to dashboard viewers.
 type ClientStatus struct {
 	ID          string  `json:"id"`
+	Type        string  `json:"type"`        // "phone" | "webcam"
 	Lat         float64 `json:"lat"`
 	Lon         float64 `json:"lon"`
-	Heading     float64 `json:"heading"` // alpha
+	Heading     float64 `json:"heading"`     // compass bearing, degrees
+	East        float64 `json:"east"`        // ENU position, metres
+	North       float64 `json:"north"`
+	Up          float64 `json:"up"`
+	Elevation   float64 `json:"elevation"`   // degrees above horizontal (webcam)
 	LastSeen    float64 `json:"last_seen"`
 	FPS         float64 `json:"fps"`
 	GPSAccuracy float64 `json:"gps_accuracy"`

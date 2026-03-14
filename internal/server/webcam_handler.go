@@ -331,11 +331,46 @@ func isTileHostAllowed(host string) bool {
 
 // ── pipeline integration ───────────────────────────────────────────────────────
 
-// registerWebcamInPipeline registers a webcam as a pipeline client and
-// immediately submits a dummy zero frame so the client appears in the status list.
+// registerWebcamInPipeline registers a webcam as a pipeline client.
 func (s *Server) registerWebcamInPipeline(cam types.WebcamCameraEntry) {
 	ctx := context.Background()
-	_ = s.pipeline.RegisterClient(ctx, cam.ID)
+	_ = s.pipeline.RegisterClient(ctx, cam.ID, "webcam")
+}
+
+// handleClientFeed streams the latest buffered JPEG from a phone client as MJPEG.
+// URL: /client/feed/{id}
+func (s *Server) handleClientFeed(w http.ResponseWriter, r *http.Request) {
+	id := path.Base(r.URL.Path)
+	w.Header().Set("Content-Type", "multipart/x-mixed-replace; boundary=frame")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming not supported", http.StatusInternalServerError)
+		return
+	}
+
+	// Phones typically send at 4 Hz; poll at 250 ms to match that rate.
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-ticker.C:
+			v, ok := s.phoneFrames.Load(id)
+			if !ok {
+				continue
+			}
+			data := v.([]byte)
+			fmt.Fprintf(w, "--frame\r\nContent-Type: image/jpeg\r\nContent-Length: %d\r\n\r\n", len(data))
+			w.Write(data) //nolint:errcheck
+			fmt.Fprintf(w, "\r\n")
+			flusher.Flush()
+		}
+	}
 }
 
 // webcamSyncCallback is called by the capture.Manager on every sync tick.

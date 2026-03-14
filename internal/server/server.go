@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -37,7 +38,8 @@ type Server struct {
 	dashHub  *dashboardHub
 	mux      *http.ServeMux
 
-	webcam *webcamState
+	webcam      *webcamState
+	phoneFrames sync.Map // clientID → []byte (latest JPEG from phone)
 }
 
 // New constructs a Server wired to the given pipeline and grid.
@@ -88,6 +90,9 @@ func New(cfg config.Config, pl *pipeline.Pipeline, g *voxel.Grid, conv *geo.Conv
 	// Webcam MJPEG feeds
 	s.mux.HandleFunc("/webcam/feed/", s.handleWebcamFeed)
 	s.mux.HandleFunc("/webcam/motion/", s.handleWebcamMotion)
+
+	// Phone client live JPEG feed (buffered server-side from WS frames)
+	s.mux.HandleFunc("/client/feed/", s.handleClientFeed)
 
 	// Static files — served from the embedded FS
 	fileServer := http.FileServer(staticFS)
